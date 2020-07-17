@@ -13,6 +13,7 @@ module.exports = function(RED) {
             node.is_subscribed = false;
             node.cleanTimer = null;
             node.server = RED.nodes.getNode(node.config.server);
+            node.cachedPayload = null;
 
             if (typeof(node.config.channel) == 'string') node.config.channel = [node.config.channel]; //for compatible
 
@@ -85,14 +86,35 @@ module.exports = function(RED) {
         onMQTTMessage(data) {
             var node = this;
 
+            if(node.hasChannelError(data.topic)) {
+
+                if(data.payload !== '') {
+                    switch(data.payload) {
+                        case 'r':
+                            node.status({
+                                fill: "red",
+                                shape: "dot",
+                                text: "node-red-contrib-wirenboard/in:status.error_reading"
+                            });
+                            break;
+                        default:
+                            node.setStatus({
+                                fill: "red",
+                                shape: "dot",
+                                text: RED._("node-red-contrib-wirenboard/in:status.error_undefined", {error: data.payload})
+                            });
+                    }
+                } else {
+                    node.status({fill: "green", shape: "dot", text: node.cachedPayload});
+                }
+
+                return;
+            }
+
             if (node.hasChannel(data.topic)) {
-                clearTimeout(node.cleanTimer);
                 
-                node.status({
-                    fill: "green",
-                    shape: "dot",
-                    text: data.payload
-                });
+                node.status({fill: "green", shape: "dot", text: data.payload});
+                node.cachedPayload = data.payload;
 
                 if (node.isSingleChannelMode()) {
                     if (node.firstMsg && !node.config.outputAtStartup) {
@@ -135,21 +157,21 @@ module.exports = function(RED) {
             return (this.config.channel).length === 1;
         }
 
-        hasChannel(channel) {
+        hasChannelError(channel) {
             var node = this;
-            var result = false;
 
-            for (var i in node.config.channel) {
-                if (node.config.channel[i] === channel) {
-                    result = true;
-                    break;
-                }
+            if(!channel.endsWith('/meta/error')) {
+                return false;
             }
 
-            return result;
+            return this.hasChannel(channel.replace('/meta/error', ''));
         }
 
+        hasChannel(channel) {
+            var node = this;
 
+            return node.config.channel.includes(channel);
+        }
     }
     RED.nodes.registerType('wirenboard-in', WirenboardNodeIn);
 };

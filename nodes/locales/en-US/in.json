@@ -15,7 +15,9 @@
         "no_server": "no server",
         "no_device": "no device",
         "no_connection": "no connection",
-        "connected": "connected"
+        "connected": "connected",
+        "error_reading": "reading error",
+        "error_undefined": "error: __error__"
     },
     "multiselect": {
         "groups":  "Light Groups",
